@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Bird Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #87CEEB, #1E90FF);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: white;
+            text-align: center;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 360px;
+            height: 640px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            color: #FFD700;
+        }
+        
+        .game-title {
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 20;
+            transition: opacity 0.5s;
+        }
+        
+        .start-screen {
+            background: linear-gradient(to bottom, rgba(30, 144, 255, 0.8), rgba(0, 0, 139, 0.8));
+        }
+        
+        .game-over-screen {
+            display: none;
+        }
+        
+        button {
+            background: linear-gradient(to bottom, #FFD700, #FFA500);
+            border: none;
+            border-radius: 50px;
+            color: #333;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 12px 30px;
+            margin-top: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .touch-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            z-index: 5;
+        }
+        
+        .sorry-message {
+            color: #FF6B6B;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="game-title">Nadia Game</h1>
+    
+    <div class="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <div class="score-display">Score: <span id="score">0</span></div>
+        
+        <div class="screen start-screen" id="start-screen">
+            <h2>Flying Bird Adventure</h2>
+            <p>Tap anywhere to fly!</p>
+            <button id="start-button">Start Game</button>
+        </div>
+        
+        <div class="screen game-over-screen" id="game-over-screen">
+            <h2>Game Over!</h2>
+            <div class="sorry-message">Sorry Nadia</div>
+            <p>Your score: <span id="final-score">0</span></p>
+            <button id="restart-button">Play Again</button>
+        </div>
+        
+        <div class="touch-area" id="touch-area"></div>
+    </div>
+
+    <!-- Background music -->
+    <audio id="background-music" loop>
+        <source src="audio.mp3"type="audio/mpeg">
+    </audio>
+    
+    <!-- Game over music -->
+    <audio id="game-over-music">
+        <source src="io.mp3"type="audio/mpeg">
+    </audio>
+    
+    <!-- Game sounds -->
+    <audio id="flap-sound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-bird-flapping-wings-1251.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="collision-sound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-electronic-retro-block-hit-2185.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="point-sound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Admin Images -->
+    <img id="admin-bird" src="nader.png" style="display: none;">
+    <img id="admin-obstacle" src="nadia.png" style="display: none;">
+
+    <script>
+        // Game variables
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const scoreDisplay = document.getElementById('score');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const touchArea = document.getElementById('touch-area');
+        
+        // Admin images
+        const adminBirdImage = document.getElementById('admin-bird');
+        const adminObstacleImage = document.getElementById('admin-obstacle');
+        
+        // Audio elements
+        const backgroundMusic = document.getElementById('background-music');
+        const gameOverMusic = document.getElementById('game-over-music');
+        const flapSound = document.getElementById('flap-sound');
+        const collisionSound = document.getElementById('collision-sound');
+        const pointSound = document.getElementById('point-sound');
+        
+        // Set canvas dimensions
+        canvas.width = 360;
+        canvas.height = 640;
+        
+        // Game state
+        let gameActive = false;
+        let score = 0;
+        let frames = 0;
+        
+        // Bird properties - made easier
+        const bird = {
+            x: 100, // Moved further right for more reaction time
+            y: canvas.height / 2,
+            width: 50,
+            height: 35,
+            gravity: 0.1, // Reduced gravity
+            lift: -6, // Reduced lift for slower movement
+            velocity: 0,
+            
+            draw: function() {
+                // Draw admin bird image
+                ctx.drawImage(adminBirdImage, this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+            },
+            
+            update: function() {
+                this.velocity += this.gravity;
+                this.y += this.velocity;
+                
+                // Keep bird within canvas bounds
+                if (this.y >= canvas.height - this.height / 2) {
+                    this.y = canvas.height - this.height / 2;
+                    this.velocity = 0;
+                }
+                
+                if (this.y <= this.height / 2) {
+                    this.y = this.height / 2;
+                    this.velocity = 0;
+                }
+            },
+            
+            flap: function() {
+                this.velocity += this.lift;
+                flapSound.currentTime = 0;
+                flapSound.play();
+            }
+        };
+        
+        // Obstacles array
+        const obstacles = [];
+        
+        // Obstacle class - made easier
+        class Obstacle {
+            constructor() {
+                this.width = 60; // Narrower obstacles
+                this.x = canvas.width;
+                this.topHeight = Math.random() * (canvas.height / 3) + 50; // Smaller top obstacles
+                this.gap = 220; // Larger gap between obstacles
+                this.bottomY = this.topHeight + this.gap;
+                this.bottomHeight = canvas.height - this.bottomY;
+                this.speed = 2; // Slower speed
+                this.passed = false;
+            }
+            
+            draw() {
+                // Draw admin obstacle images
+                ctx.drawImage(adminObstacleImage, this.x, 0, this.width, this.topHeight);
+                ctx.drawImage(adminObstacleImage, this.x, this.bottomY, this.width, this.bottomHeight);
+            }
+            
+            update() {
+                this.x -= this.speed;
+                
+                // Check if bird passed the obstacle
+                if (!this.passed && this.x + this.width < bird.x) {
+                    this.passed = true;
+                    score++;
+                    scoreDisplay.textContent = score;
+                    pointSound.currentTime = 0;
+                    pointSound.play();
+                }
+                
+                // Check for collision - forgiving collision detection
+                if (bird.x + bird.width / 3 > this.x && 
+                    bird.x - bird.width / 3 < this.x + this.width) {
+                    if (bird.y - bird.height / 3 < this.topHeight || 
+                        bird.y + bird.height / 3 > this.bottomY) {
+                        gameOver();
+                    }
+                }
+            }
+        }
+        
+        // Background clouds
+        const clouds = [];
+        
+        // Cloud class
+        class Cloud {
+            constructor() {
+                this.x = canvas.width;
+                this.y = Math.random() * (canvas.height / 3);
+                this.width = 80 + Math.random() * 40;
+                this.height = 30 + Math.random() * 20;
+                this.speed = 0.5 + Math.random(); // Slower clouds
+            }
+            
+            draw() {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.height / 2, 0, Math.PI * 2);
+                ctx.arc(this.x + this.width / 3, this.y - this.height / 4, this.height / 2, 0, Math.PI * 2);
+                ctx.arc(this.x + (2 * this.width) / 3, this.y, this.height / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            update() {
+                this.x -= this.speed;
+                if (this.x + this.width < 0) {
+                    clouds.splice(clouds.indexOf(this), 1);
+                }
+            }
+        }
+        
+        // Game functions
+        function startGame() {
+            gameActive = true;
+            score = 0;
+            frames = 0;
+            obstacles.length = 0;
+            clouds.length = 0;
+            bird.y = canvas.height / 2;
+            bird.velocity = 0;
+            scoreDisplay.textContent = score;
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Stop game over music if playing
+            gameOverMusic.pause();
+            gameOverMusic.currentTime = 0;
+            
+            // Start background music automatically
+            backgroundMusic.play();
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        function gameOver() {
+            gameActive = false;
+            finalScoreDisplay.textContent = score;
+            gameOverScreen.style.display = 'flex';
+            collisionSound.play();
+            
+            // Stop background music and play game over music
+            backgroundMusic.pause();
+            gameOverMusic.play();
+        }
+        
+        function gameLoop() {
+            if (!gameActive) return;
+            
+            // Clear canvas with daylight background
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGradient.addColorStop(0, '#87CEEB');
+            skyGradient.addColorStop(1, '#1E90FF');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw ground
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, canvas.height - 30, canvas.width, 10);
+            
+            // Update and draw clouds
+            if (frames % 120 === 0) {
+                clouds.push(new Cloud());
+            }
+            
+            clouds.forEach(cloud => {
+                cloud.update();
+                cloud.draw();
+            });
+            
+            // Update and draw obstacles
+            if (frames % 150 === 0) {
+                obstacles.push(new Obstacle());
+            }
+            
+            obstacles.forEach((obstacle, index) => {
+                obstacle.update();
+                obstacle.draw();
+                
+                // Remove obstacles that are off screen
+                if (obstacle.x + obstacle.width < 0) {
+                    obstacles.splice(index, 1);
+                }
+            });
+            
+            // Update and draw bird
+            bird.update();
+            bird.draw();
+            
+            // Slow difficulty increase
+            if (frames % 600 === 0 && obstacles.length > 0) {
+                obstacles.forEach(obstacle => {
+                    obstacle.speed += 0.2; // Smaller speed increase
+                });
+            }
+            
+            frames++;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        // Touch/click to make bird fly
+        canvas.addEventListener('click', function() {
+            if (gameActive) {
+                bird.flap();
+            }
+        });
+        
+        touchArea.addEventListener('click', function() {
+            if (gameActive) {
+                bird.flap();
+            }
+        });
+        
+        // Space bar to make bird fly
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space' && gameActive) {
+                bird.flap();
+                event.preventDefault();
+            }
+        });
+        
+        // Initialize canvas
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(1, '#1E90FF');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Wait for images to load before starting
+        window.onload = function() {
+            // Draw initial bird
+            bird.draw();
+        };
+    </script>
+</body>
+</html>
